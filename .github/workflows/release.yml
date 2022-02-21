@@ -2,6 +2,8 @@ name: Release
 
 on:
   push:
+    branches:
+      - master
     tags:
       - v[0-9]+.[0-9]+.[0-9]+
       - v[0-9]+.[0-9]+.[0-9]+-**
@@ -14,7 +16,6 @@ jobs:
   macos:
     name: "Build release on MacOS"
     runs-on: macos-11.0
-    if: startsWith(github.ref, 'refs/tags/')
     env:
       UPLOAD_NAME: macos
       X86_ARCH: x86_64-apple-darwin
@@ -89,7 +90,6 @@ jobs:
   windows:
     name: "Build release on Windows"
     runs-on: windows-latest
-    if: startsWith(github.ref, 'refs/tags/')
     env:
       UPLOAD_NAME: win64
       X86_ARCH: x86_64-pc-windows-msvc
@@ -138,7 +138,6 @@ jobs:
   linux_gnu:
     name: "Build release on Linux (gnu)"
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
     env:
       UPLOAD_NAME: linux64-gnu
       X86_GNU_ARCH: x86_64-unknown-linux-gnu
@@ -182,7 +181,6 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: alpine:3.14
-    if: startsWith(github.ref, 'refs/tags/')
     env:
       UPLOAD_NAME: linux64-musl
       X86_MUSL_ARCH: x86_64-unknown-linux-musl
@@ -228,7 +226,6 @@ jobs:
   publish:
     needs: [macos, windows, linux_gnu, linux_musl]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
     env:
@@ -280,31 +277,31 @@ jobs:
           echo "SHA_LINUX64_MUSL_LUA_LIB=$(cat ${{ env.LINUX64_MUSL_LIB }}.sha256sum)" >> $GITHUB_ENV
           sha256sum ${{ env.LINUX64_MUSL_BIN }} > ${{ env.LINUX64_MUSL_BIN }}.sha256sum
           echo "SHA_LINUX64_MUSL_BIN=$(cat ${{ env.LINUX64_MUSL_BIN }}.sha256sum)" >> $GITHUB_ENV
-      - name: Determine git tag
-        if: github.event_name == 'push'
-        run: |
-          TAG_NAME=${{ github.ref }}
-          echo "TAG_NAME=${TAG_NAME#refs/tags/}" >> $GITHUB_ENV
-      - name: Check git tag for pre-release
-        id: check-tag
+      - name: Get info about commit
+        id: info
         run: |
           if [[ ${{ github.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+-.*$ ]]; then
-              echo ::set-output name=match::true
+              echo "::set-output name=type::prerelease"
+              echo "::set-output name=desc::${GITHUB_REF#refs/tags/}"
+          elif [[ ${{ github.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::set-output name=type::release"
+              echo "::set-output name=desc::${GITHUB_REF#refs/tags/}"
+          else
+              echo "::set-output name=type::commit"
+              echo "::set-output name=desc::${GITHUB_SHA}"
           fi
-      - name: Print pre-release status
+      - name: Print info about commit
         run: |
-          echo "Is ${{ github.ref }} a pre-release: ${{ steps.check-tag.outputs.match }}"
+          echo "${{ github.ref }} type: ${{ steps.info.outputs.type }}"
+          echo "${{ github.ref }} desc: ${{ steps.info.outputs.desc }}"
       - name: Publish
         uses: softprops/action-gh-release@v1
         with:
-          name: distant ${{ env.TAG_NAME }}
+          name: distant ${{ steps.info.outputs.desc }}
           fail_on_unmatched_files: true
           target_commitish: ${{ github.sha }}
           draft: false
-          prerelease: ${{ steps.check-tag.outputs.match == 'true' }}
-          # NOTE: MacOS universal and aarch64 Lua libs are withheld due to
-          #       https://github.com/khvzak/mlua/issues/82 and must be
-          #       built and added to each release manually
+          prerelease: ${{ steps.info.outputs.type != 'release' }}
           files: |
             ${{ env.MACOS }}/${{ env.MACOS_UNIVERSAL_BIN }}
             ${{ env.MACOS }}/${{ env.MACOS_UNIVERSAL_LIB }}
