@@ -34,6 +34,9 @@ tokio = { version = "1.22.0", features = ["full"] }
 # Optional dependencies based on features
 schemars = { version = "0.8.11", optional = true }
 
+[target.'cfg(unix)'.dependencies]
+pam-client = "0.5.0"
+
 [dev-dependencies]
 env_logger = "0.9.3"
 tempfile = "3.3.0"

@@ -43,9 +43,19 @@ where
                 eprintln!("{}", line);
             }
 
+            // Special handling to determine if we echo the prompt or not
+            let echo = match question.options.get("echo") {
+                Some(value) => value.eq_ignore_ascii_case("true"),
+                _ => false,
+            };
+
             // Get an answer from user input, or use a blank string as an answer
             // if we fail to get input from the user
-            let answer = (self.password_prompt)(line).unwrap_or_default();
+            let answer = if echo {
+                (self.text_prompt)(line).unwrap_or_default()
+            } else {
+                (self.password_prompt)(line).unwrap_or_default()
+            };
 
             answers.push(answer);
         }

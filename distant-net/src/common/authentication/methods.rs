@@ -5,9 +5,11 @@ use std::collections::HashMap;
 use std::io;
 
 mod none;
+mod password;
 mod static_key;
 
 pub use none::*;
+pub use password::*;
 pub use static_key::*;
 
 /// Supports authenticating using a variety of methods
